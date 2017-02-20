@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <meta http-equiv='X-UA-Compatible' content='ie=edge'>
+    <style>
+        td {
+            border: 1px solid black;
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+
+        input {
+            border: none;
+        }
+
+        #myChart {
+            border: 1px solid black;
+            cursor: pointer;
+            box-shadow: 1px 1px 18px grey;
+        }
+
+        .canvContainer {
+            display: flex;
+            flex-direction: column;;
+            align-items: center;;
+        }
+
+        #run {
+            width: 100px;
+            height: 50px;
+            color: white;
+            font-size: 25px;
+            background-color: rgb(50, 150, 220);
+        }
+    </style>
+    <title>Document</title>
+</head>
+<body>
+    <!-- <table id='table'>
+        <tr style='background-color:rgb(200, 200, 200);'>
+            <td>x</td>
+            <td>y</td>
+        </tr>
+        <tr>
+            <td><input type='text' value='1'></td>
+            <td><input type='text' value='5'></td>
+        </tr>
+        <tr>
+            <td><input type='text' value='2'></td>
+            <td><input type='text' value='7'></td>
+        </tr>
+        <tr>
+            <td><input type='text'></td>
+            <td><input type='text'></td>
+        </tr>
+        <tr>
+            <td><input type='text'></td>
+            <td><input type='text'></td>
+        </tr>
+        <tr>
+            <td><input type='text'></td>
+            <td><input type='text'></td>
+        </tr>
+        <tr style='background-color:rgb(200, 200, 200);'>
+            <td>left x</td>
+            <td>right x</td>
+        </tr>
+        <tr>
+            <td><input type='text' id='leftX' value='10'></td>
+            <td><input type='text' id='rightX' value='150'></td>
+        </tr>
+    </table> -->
+    <h1 style='font-family:Arial;'>Linear Regression, least squares method</h1>
+    <button id='run'>draw</button>
+    <div class='canvContainer'>
+        <div id='cursorCoords'></div>
+        <canvas id='myChart' width='700px' height='400px'></canvas>
+    </div>
+    <script>
+        class Drawer {
+            constructor(context) {
+                this.context = context;
+                this.context.lineWidth = 5;
+                this.context.strokeStyle = 'purple';
+                this.context.fillStyle = 'purple';
+                this.context.font = "20px Arial";
+                this.context.textBaseline = "hanging";
+                this.circleDiametr = 4;
+                this.circleColor = 'green';
+            }
+
+            line(point1, point2) {
+                this.context.beginPath();
+
+                this.context.moveTo(point1.x, point1.y);
+                this.context.lineTo(point2.x, point2.y);
+
+                this.context.stroke();
+
+                this.context.closePath();
+            }
+
+            text(text, point) {
+                this.context.font = "20px Arial";
+
+                this.context.fillText(text, point.x, point.y);
+            }
+
+            circle(point, pseudoPoint) {
+                this.context.font = "12px Arial";
+
+                this.context.beginPath();
+                const oldFillStyle = this.context.fillStyle;
+                this.context.fillStyle = this.circleColor;
+                this.context.ellipse(
+                    point.x,
+                    point.y,
+                    this.circleDiametr,
+                    this.circleDiametr, 0, 0, Math.PI * 2
+                );
+                this.context.fillText(`(${pseudoPoint.x};${pseudoPoint.y})`, point.x, point.y);
+                this.context.fill();
+                this.context.fillStyle = oldFillStyle;
+                this.context.closePath();
+            }
+
+            clear() {
+                this.context.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        class Graph {
+            constructor(drawer, settings) {
+                this.drawer = drawer;
+
+                this.settings = {
+                    height: settings.height,
+                    width: settings.width,
+                    deltaLength: settings.deltaLength
+                }
+
+                this.points = [];
+
+                this.drawCoords();
+            }
+
+            drawCoords() {
+                this.drawer.clear();
+
+                this.drawer.line({
+                    y: this.settings.height,
+                    x: 0
+                }, {
+                    y: 0,
+                    x: 0
+                });
+
+                this.drawer.line({
+                    y: this.settings.height,
+                    x: 0
+                }, {
+                    y: this.settings.height,
+                    x: this.settings.width
+                });
+
+                const verticalCutLength = this.settings.height / 10;
+
+                for (let i = 0; i < 10; i++) {
+                    this.drawer.text((this.settings.height - verticalCutLength * i) / this.settings.deltaLength, {
+                        x: 0,
+                        y: i * verticalCutLength
+                    });
+                }
+
+                for (let i = 0; i < 17; i++) {
+                    this.drawer.text(i * verticalCutLength / this.settings.deltaLength, {
+                        x: i * verticalCutLength,
+                        y: this.settings.height - 20
+                    });
+                }
+            }
+
+            draw(points) {
+                this.drawCoords();
+                this.points.forEach(this.drawPoint.bind(this));
+
+                this.points = [];
+
+                for (let i = 0; i < points.length; i += 2) {
+                    this.drawer.line(this._translateCoords(points[i]), this._translateCoords(points[i + 1]));
+                }
+            }
+
+            drawPoint(point) {
+                this.points.push(point);
+
+                this.drawer.circle(this._translateCoords(point), point);
+            }
+
+            _translateCoords(point) {
+                return {
+                    x: point.x * this.settings.deltaLength,
+                    y: ((this.settings.height/this.settings.deltaLength) - point.y) * this.settings.deltaLength
+                }
+            }
+        }
+
+        const canvas = document.getElementById('myChart');
+        const ctx = canvas.getContext('2d');
+
+        const runBtn = document.getElementById('run');
+
+        const graph = new Graph(new Drawer(ctx), {
+            height: canvas.height,
+            width: canvas.width,
+            deltaLength: 4
+        });
+
+        runBtn.onclick = () => {
+            const dataset = graph.points.length ? graph.points : getTableDataset();
+
+            const a = getA(dataset);
+            const b = getB(dataset, a);
+
+            const x1 = 10; // +leftX.value;
+            const x2 = 160; // +rightX.value;
+
+            const f1 = a * x1 + b;
+            const f2 = a * x2 + b;
+
+            graph.draw([
+                {
+                    x: x1,
+                    y: f1
+                },
+                {
+                    x: x2,
+                    y: f2
+                }
+            ]);
+        }
+
+        canvas.onmousemove = event => {
+            const x = Math.round((event.clientX - canvas.getBoundingClientRect().left) / 4);
+            const y = Math.round((canvas.height - (event.clientY - canvas.getBoundingClientRect().top)) / 4);
+            cursorCoords.textContent = `${x}:${y}`;
+        }
+
+        canvas.onclick = event => {
+            const x = Math.round((event.clientX - canvas.getBoundingClientRect().left) / 4);
+            const y = Math.round((canvas.height - (event.clientY - canvas.getBoundingClientRect().top)) / 4);
+
+            graph.drawPoint({x, y})
+        }
+
+        function getA(dataset) {
+            const n = dataset.length;
+
+            const sumX = dataset.reduce((sum, point) => {
+                return sum + point.x;
+            }, 0);
+
+            const sumY = dataset.reduce((sum, point) => {
+                return sum + point.y;
+            }, 0);
+
+            const sumXY = dataset.reduce((sum, point) => {
+                return sum + point.x * point.y;
+            }, 0);
+
+            const sumXX = dataset.reduce((sum, point) => {
+                return sum + point.x * point.x;
+            }, 0);
+
+            return (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        }
+
+        function getB(dataset, a) {
+            const n = dataset.length;
+
+            const sumY = dataset.reduce((sum, point) => {
+                return sum + point.y;
+            }, 0);
+
+            const sumX = dataset.reduce((sum, point) => {
+                return sum + point.x;
+            }, 0);
+
+            return (sumY - a * sumX) / n;
+        }
+
+        function getTableDataset() {
+            const table = document.getElementById('table');
+
+            const dataset = [];
+
+            for (let i = 1; i < table.rows.length; i++) {
+                if (!table.rows[i].cells[0].children[0].value) {
+                    return dataset;
+                }
+
+                dataset.push({
+                    x: +table.rows[i].cells[0].firstElementChild.value,
+                    y: +table.rows[i].cells[1].firstElementChild.value
+                });
+            }
+
+            return dataset;
+        }
+    </script>
+</body>
+</html>
