@@ -1,5 +1,7 @@
 # Linear-regression-LSM-visualization
 
+https://fredddy123.github.io/Linear-regression-LSM-visualization/
+
 Simple implementation of least squares method with interactive visualization
 
 just click on the chart plane to add points and click "draw" button to see result line
